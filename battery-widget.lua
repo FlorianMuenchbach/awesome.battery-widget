@@ -1,6 +1,21 @@
 -- Battery widget
 
+-- Config values :
+-- args.adapter
+-- args.ac_prefix
+-- args.battery_prefix
+-- args.timeout 
+-- args.limits {
+--      {15, "red"},
+--      {25, "orange"},
+--      {100, "green"}
+--  }
+-- args.warning_limit 
+
+
+
 local awful = require("awful")
+local naughty = require("naughty")
 local gears = require("gears")
 local wibox = require("wibox")
 
@@ -56,6 +71,7 @@ function battery_widget:init(args)
         {50, "orange"},
         {100, "green"}
     }
+    self.warning_limit = args.warning_limit or 15
 
     self.widget = wibox.widget.textbox()
     self.widget.set_align("right")
@@ -103,8 +119,9 @@ function battery_widget:get_state()
         percent = round(charge * 100 / capacity)
     end
 
-    -- estimate time
     is_charging = 0
+
+    -- estimate time
     time = -1
     if rate ~= 0 and rate ~= nil then
         if state == "charging" then
@@ -117,6 +134,17 @@ function battery_widget:get_state()
     end
 
     return percent, ac_state, time, state, is_charging, capacity, design
+end
+
+local function show_battery_warning(time, percent)
+    naughty.notify({
+        title     = "Battery Low!",
+        text      = percent .."%" .. " (" .. time .. ") left!",
+        fg        ="#ffffff",
+        bg        ="#ff0000",
+        timeout   = 15,
+        position  = "top_middle",
+    })
 end
 
 function battery_widget:update()
@@ -174,10 +202,12 @@ function battery_widget:update()
     if state == nil then
         state = "Err!"
     end
-    if is_charging == 1 then
+
+    if is_charging == 1 or is_charging == -1 then
         self.tooltip:set_text("Battery "..state..est_postfix..captext)
-    elseif is_charging == -1 then
-        self.tooltip:set_text("Battery "..state..est_postfix..captext)
+          if percent <= self.warning_limit then
+            show_battery_warning(time_str, percent)
+        end
     else
         self.tooltip:set_text("Battery "..state..captext)
     end
